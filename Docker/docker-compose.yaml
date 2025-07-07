@@ -34,10 +34,3 @@ services:
       MYSQL_ROOT_PASSWORD: root
     volumes:
       - ./storage:/var/lib/mysql
-
-networks:
-  default:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.16.1.0/24
