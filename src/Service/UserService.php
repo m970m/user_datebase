@@ -2,47 +2,31 @@
 
 namespace App\Service;
 
-use App\Entity\User;
+use App\DTO\UserDTO;
 use App\Repository\UserRepository;
 
 class UserService
 {
     public function __construct(private UserRepository $userRepository) {}
 
-    public function getAllUsers(): string
+    public function getAllUsers(): array
     {
         $users = $this->userRepository->getAllUsers();
-        $result = 'Users:' . PHP_EOL;
-        foreach ($users as $user)
-        {
-            $result .= 'id = ' . $user->getId() .
-                ', name = ' . $user->getName() .
-                ', surname = ' . $user->getSurname() .
-                ', email = ' . $user->getEmail() . PHP_EOL;
-        }
-
-        return $result;
-
+        return array_map(fn($user) => $user->toArray(), $users);
     }
 
-    public function addUser(): string
+    public function addUser(): void
     {
-        $id = $this->userRepository->getNextId();
-        $user = new User(
-            $id,
-            'Name' . $id,
-            'Surname' . $id,
-            'Email' . $id
+        $user = new UserDTO(
+            'Name' . rand(),
+            'Surname' . rand(),
+            'Email' . rand()
         );
         $this->userRepository->addUser($user);
-
-        return 'User with id: ' . $id . ', name: ' . $user->getName() . ', surname: ' . $user->getSurname() .
-            ', email: ' . $user->getEmail() . ' added.' . PHP_EOL;
     }
 
-    public function deleteUser(int $id): string
+    public function deleteUser(int $id): void
     {
         $this->userRepository->deleteUser($id);
-        return 'User with id: ' . $id . ' deleted.' . PHP_EOL;
     }
 }

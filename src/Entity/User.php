@@ -11,6 +11,16 @@ class User
         private string $surname,
         private string $email) {}
 
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'surname' => $this->surname,
+            'email' => $this->email
+        ];
+    }
+
     public function getId(): int
     {
         return $this->id;

@@ -1,7 +1,6 @@
 <?php
 declare(strict_types=1);
 
-use App\Controller\UserController;
 use App\Repository\UserRepository;
 use App\Service\UserService;
 
@@ -18,23 +17,29 @@ function route(array $args, string $usersJsonPath): void
 
     $userRepository = new UserRepository($usersJsonPath);
     $userService = new UserService($userRepository);
-    $userController = new UserController($userService);
 
     if ($args[1] == 'get')
     {
-        $userController->getAllUsers();
+        $users = $userService->getAllUsers();
+        echo "Users:" . PHP_EOL;
+        foreach ($users as $user)
+        {
+            echo "id: {$user['id']}, name: {$user['name']}, surname: {$user['surname']}, email: {$user['email']}";
+        }
         return;
     }
 
     if ($args[1] == 'new')
     {
-        $userController->addUser();
+        $userService->addUser();
+        echo 'A new user has been added.' . PHP_EOL;
         return;
     }
 
     if ($args[1] == 'delete' && isset($args[2]) && filter_var(($args[2]), FILTER_VALIDATE_INT))
     {
-        $userController->deleteUser((int) $args[2]);
+        $userService->deleteUser((int) $args[2]);
+        echo "User with id {$args[2]} deleted." . PHP_EOL;
         return;
     }
 
@@ -46,6 +51,6 @@ try
     route($argv, usersJsonPath);
 } catch (Exception $e)
 {
-    echo $e->getMessage();
+    echo $e->getMessage() . PHP_EOL;
 }
 
