@@ -5,7 +5,6 @@ namespace App\Repository;
 
 use App\DTO\UserDTO;
 use App\Entity\User;
-use App\Service\UserRepositoryInterface;
 use PDO;
 
 class UserRepository implements UserRepositoryInterface
@@ -27,7 +26,7 @@ class UserRepository implements UserRepositoryInterface
     public function addUser(UserDTO $userDTO): void
     {
         try {
-            $sql = 'ISERT INTO user (name, surname, email) VALUES (:name, :surname, :email)';
+            $sql = 'INSERT INTO user (name, surname, email) VALUES (:name, :surname, :email)';
             $stmt = $this->connection->prepare($sql);
             $stmt->bindValue(':name', $userDTO->name);
             $stmt->bindValue(':surname', $userDTO->surname);

@@ -1,18 +1,20 @@
 <?php
 declare(strict_types=1);
 
-use App\Env\Env;
+use App\Database\ConnectionProvider;
 use App\Repository\Factory\RepositoryFactory;
 use App\Router\ConsoleRouter;
 use App\Service\UserService;
 
 require __DIR__ . "/../../vendor/autoload.php";
 
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . "/../../");
+$dotenv->load();
+
 try
 {
-    $config = require(__DIR__ . "/../../config/config.php");
-    $env = new Env(__DIR__ . "/../../.env");
-    $repositoryFactory = new RepositoryFactory($env->getDbSourceType(), $config);
+    $connectionProvider = new ConnectionProvider();
+    $repositoryFactory = new RepositoryFactory($connectionProvider, $_ENV);
     $userRepository = $repositoryFactory->createRepository();
     $userService = new UserService($userRepository);
     $router = new ConsoleRouter($userService);

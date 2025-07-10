@@ -5,7 +5,6 @@ namespace App\Repository;
 
 use App\DTO\UserDTO;
 use App\Entity\User;
-use App\Service\UserRepositoryInterface;
 
 class JsonUserRepository implements UserRepositoryInterface
 {
@@ -67,8 +66,7 @@ class JsonUserRepository implements UserRepositoryInterface
         $json = json_encode(array_values($this->data));
         if (file_put_contents($this->usersJsonPath, $json) === false)
         {
-            unset($this->users[$id]);
-            unset($this->data[$id]);
+            unset($this->users[$id], $this->data[$id]);
             $this->lastId--;
             throw new \RuntimeException("Error writing to file!");
         }
@@ -81,9 +79,7 @@ class JsonUserRepository implements UserRepositoryInterface
             throw new \RuntimeException("User with id: {$id} does not exist.");
         }
 
-        unset($this->users[$id]);
-        unset($this->data[$id]);
-
+        unset($this->users[$id], $this->data[$id]);
         $json = json_encode(array_values($this->data));
         if (file_put_contents($this->usersJsonPath, $json) === false)
         {

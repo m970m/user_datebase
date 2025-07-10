@@ -4,22 +4,26 @@ declare(strict_types=1);
 namespace App\Repository\Factory;
 
 use App\Database\ConnectionProvider;
-use App\Database\DbSourceType;
-use App\Env\Env;
 use App\Repository\JsonUserRepository;
 use App\Repository\UserRepository;
-use App\Service\UserRepositoryInterface;
+use App\Repository\UserRepositoryInterface;
 
 class RepositoryFactory
 {
-    public function __construct(private DbSourceType $dbSourceType, private array $config) {}
+    public function __construct(private ConnectionProvider $connectionProvider, private array $env) {}
 
     public function createRepository(): UserRepositoryInterface
     {
-        return match ($this->dbSourceType)
+        return match ($this->env['DB_SOURCE'])
         {
-            DbSourceType::JSON => new JsonUserRepository($this->config['jsonPath']),
-            DbSourceType::MYSQL => new UserRepository(ConnectionProvider::getConnection($this->config))
+            'json' => new JsonUserRepository($this->env['JSON_PATH']),
+            'mysql' => new UserRepository(
+                $this->connectionProvider->getConnection(
+                    $this->env['DSN'],
+                    $this->env['DB_USER'],
+                    $this->env['DB_PASSWORD']
+                )
+            )
         };
     }
 }

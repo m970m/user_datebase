@@ -31,7 +31,7 @@ class ConsoleRouter
             return;
         }
 
-        if ($args[1] == 'new')
+        if ($args[1] == 'add')
         {
             $this->userService->addUser();
             echo 'A new user has been added.' . PHP_EOL;
