@@ -16,13 +16,24 @@ class UserService
         return array_map(fn($user) => $user->toArray(), $users);
     }
 
-    public function addUser(): void
+    public function addUser(array $userData = []): void
     {
-        $user = new User(
-            name: 'Name' . rand(1, 10000),
-            surname: 'Surname' . rand(1, 10000),
-            email: 'Email' . rand(1, 10000)
-        );
+        if (empty($userData))
+        {
+            $user = new User(
+                name: 'Name' . rand(1, 10000),
+                surname: 'Surname' . rand(1, 10000),
+                email: 'Email' . rand(1, 10000)
+            );
+        } else
+        {
+            $user = new User(
+                name: $userData['name'],
+                surname: $userData['surname'],
+                email: $userData['email']
+            );
+        }
+
         $this->userRepository->addUser($user);
         $this->userRepository->save();
     }
