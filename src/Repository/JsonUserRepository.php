@@ -3,14 +3,18 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-use App\DTO\UserDTO;
 use App\Entity\User;
 
 class JsonUserRepository implements UserRepositoryInterface
 {
-    private array $users = [];
     private array $data = [];
     private int $lastId = 0;
+
+    /**
+     * @var User[]
+     */
+    private array $newUsers = [];
+    private array $deletedUserIds = [];
 
     public function __construct(private string $usersJsonPath)
     {
@@ -34,17 +38,7 @@ class JsonUserRepository implements UserRepositoryInterface
         foreach ($users as $user)
         {
             $this->data[$user['id']] = $user;
-        }
-
-        foreach ($this->data as $user)
-        {
             $this->lastId = max($this->lastId, $user['id']);
-            $this->users[$user['id']] = new User(
-                $user['id'],
-                $user['name'],
-                $user['surname'],
-                $user['email']
-            );
         }
     }
 
@@ -53,37 +47,68 @@ class JsonUserRepository implements UserRepositoryInterface
      */
     public function getAllUsers(): array
     {
-        return array_values($this->users);
+        return array_map(fn($user) => new User(
+            name: $user['name'],
+            surname: $user['surname'],
+            email: $user['email'],
+            id: $user['id'],
+        ), $this->data);
     }
 
-    public function addUser(UserDTO $userDTO): void
+    public function addUser(User $user): void
     {
-        $id = ++$this->lastId;
-        $user = new User($id, $userDTO->name, $userDTO->surname, $userDTO->email);
-        $this->users[] = [$id => $user];
-        $this->data[$id] = $user->toArray();
+        $this->newUsers[] = $user;
+    }
 
+    public function deleteUserById(int $userId): void
+    {
+        $this->deletedUserIds[] = $userId;
+    }
+
+    public function save(): void
+    {
+        $backupData = $this->data;
+        try {
+            $this->deleteUsers();
+            $this->insertUsers();
+            $this->saveDataToFile();
+            $this->deletedUserIds = [];
+            $this->newUsers = [];
+        } catch (\Throwable $e) {
+            $this->data = $backupData;
+            throw $e;
+        }
+    }
+
+    private function insertUsers(): void
+    {
+        foreach ($this->newUsers as $user)
+        {
+            $id = ++$this->lastId;
+            $user->setId($id);
+            $this->data[$id] = $user->toArray();
+        }
+    }
+
+    private function deleteUsers(): void
+    {
+        foreach ($this->deletedUserIds as $userId)
+        {
+            if (!isset($this->data[$userId]))
+            {
+                throw new \RuntimeException("User with id: {$userId} does not exist.");
+            }
+
+            unset($this->data[$userId]);
+        }
+    }
+
+    private function saveDataToFile(): void
+    {
         $json = json_encode(array_values($this->data));
         if (file_put_contents($this->usersJsonPath, $json) === false)
         {
-            unset($this->users[$id], $this->data[$id]);
-            $this->lastId--;
             throw new \RuntimeException("Error writing to file!");
-        }
-    }
-
-    public function deleteUser(int $id): void
-    {
-        if (!isset($this->users[$id]))
-        {
-            throw new \RuntimeException("User with id: {$id} does not exist.");
-        }
-
-        unset($this->users[$id], $this->data[$id]);
-        $json = json_encode(array_values($this->data));
-        if (file_put_contents($this->usersJsonPath, $json) === false)
-        {
-            throw new \RuntimeException("User deletion error.");
         }
     }
 }

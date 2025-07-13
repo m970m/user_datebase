@@ -3,12 +3,17 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-use App\DTO\UserDTO;
 use App\Entity\User;
 use PDO;
 
 class UserRepository implements UserRepositoryInterface
 {
+    /**
+     * @var User[]
+     */
+    private array $newUsers = [];
+    private array $deletedUserIds = [];
+
     public function __construct(private PDO $connection) {}
 
     public function getAllUsers(): array
@@ -17,39 +22,112 @@ class UserRepository implements UserRepositoryInterface
         $stmt = $this->connection->query('SELECT * FROM user');
         while ($row = $stmt->fetch())
         {
-            $result[] = new User($row['id'], $row['name'], $row['surname'], $row['email']);
+            $result[] = new User(
+                name: $row['name'],
+                surname: $row['surname'],
+                email: $row['email'],
+                id: $row['id'],
+            );
         }
 
         return $result;
     }
 
-    public function addUser(UserDTO $userDTO): void
+    public function addUser(User $user): void
     {
-        try {
-            $sql = 'INSERT INTO user (name, surname, email) VALUES (:name, :surname, :email)';
-            $stmt = $this->connection->prepare($sql);
-            $stmt->bindValue(':name', $userDTO->name);
-            $stmt->bindValue(':surname', $userDTO->surname);
-            $stmt->bindValue(':email', $userDTO->email);
-            $stmt->execute();
+        $this->newUsers[] = $user;
+    }
+
+    public function deleteUserById(int $userId): void
+    {
+        $this->deletedUserIds[] = $userId;
+    }
+
+    public function save(): void
+    {
+        $this->deleteUsers();
+        $this->insertUsers();
+        $this->deletedUserIds = [];
+        $this->newUsers = [];
+
+    }
+
+    private function deleteUsers(): void
+    {
+        if (empty($this->deletedUserIds))
+        {
+            return;
         }
-        catch (\PDOException) {
+
+        $inConditionItems = [];
+        foreach ($this->deletedUserIds as $key => $value)
+        {
+            $inConditionItems['user' . '_' . $key] = $value;
+        }
+        $inCondition = '(' . implode(',', array_map(fn($key) => ":$key", array_keys($inConditionItems))) . ')';
+
+        try
+        {
+            $sql = "DELETE FROM user WHERE id IN $inCondition";
+            $stmt = $this->connection->prepare($sql);
+            foreach ($inConditionItems as $key => $value)
+            {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+        } catch (\PDOException)
+        {
+            throw new \RuntimeException("Error deleting user");
+        }
+    }
+
+    private function insertUsers(): void
+    {
+        if (empty($this->newUsers))
+        {
+            return;
+        }
+
+        [$placeholders, $data] = $this->prepareDataToInsert($this->newUsers, fn($user) => [
+            'name' => $user->getName(),
+            'surname' => $user->getSurname(),
+            'email' => $user->getEmail()
+        ]);
+
+        try
+        {
+            $sql = "INSERT INTO user (name, surname, email) VALUES $placeholders";
+            $stmt = $this->connection->prepare($sql);
+            foreach ($data as $key => $value)
+            {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+        } catch (\PDOException)
+        {
             throw new \RuntimeException("Error adding new user");
         }
 
     }
 
-    public function deleteUser(int $id): void
+    private function prepareDataToInsert(array $users, callable $mapper): array
     {
-        try {
-            $sql = 'DELETE FROM user WHERE id = :id';
-            $stmt = $this->connection->prepare($sql);
-            $stmt->bindValue(':id', $id);
-            $stmt->execute();
-        }
-        catch (\PDOException)
+        $placeholders = [];
+        $data = [];
+        foreach ($users as $index => $user)
         {
-            throw new \RuntimeException("Error deleting user");
+            $itemData = [];
+            foreach ($mapper($user) as $key => $value)
+            {
+                $itemData[$key . '_' . $index] = $value;
+            }
+            $placeholders[] = '(' . implode(',', array_map(fn($key) => ":$key", array_keys($itemData))) . ')';
+            foreach ($itemData as $key => $value)
+            {
+                $data[$key] = $value;
+            }
         }
+
+        return [implode(',', $placeholders), $data];
     }
 }
