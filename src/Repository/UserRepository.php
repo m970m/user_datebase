@@ -3,90 +3,131 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-use App\DTO\UserDTO;
 use App\Entity\User;
+use PDO;
 
-class UserRepository
+class UserRepository implements UserRepositoryInterface
 {
-    private array $users = [];
-    private array $data = [];
-    private int $lastId = 0;
-
-    public function __construct(private string $usersJsonPath)
-    {
-        if (!file_exists($this->usersJsonPath))
-        {
-            throw new \RuntimeException("File {$this->usersJsonPath} does not exist");
-        }
-
-        $content = file_get_contents($this->usersJsonPath);
-        if ($content === false)
-        {
-            throw new \RuntimeException("File {$this->usersJsonPath} reading error.");
-        }
-
-        $users = json_decode($content, true);
-        if (json_last_error() !== JSON_ERROR_NONE)
-        {
-            throw new \RuntimeException("Invalid JSON: " . json_last_error_msg());
-        }
-
-        foreach ($users as $user)
-        {
-            $this->data[$user['id']] = $user;
-        }
-
-        foreach ($this->data as $user)
-        {
-            $this->lastId = max($this->lastId, $user['id']);
-            $this->users[$user['id']] = new User(
-                $user['id'],
-                $user['name'],
-                $user['surname'],
-                $user['email']
-            );
-        }
-    }
-
     /**
-     * @return User[]
+     * @var User[]
      */
+    private array $newUsers = [];
+    private array $deletedUserIds = [];
+
+    public function __construct(private PDO $connection) {}
+
     public function getAllUsers(): array
     {
-        return array_values($this->users);
+        $result = [];
+        $stmt = $this->connection->query('SELECT * FROM user');
+        while ($row = $stmt->fetch())
+        {
+            $result[] = new User(
+                name: $row['name'],
+                surname: $row['surname'],
+                email: $row['email'],
+                id: $row['id'],
+            );
+        }
+
+        return $result;
     }
 
-    public function addUser(UserDTO $userDTO): void
+    public function addUser(User $user): void
     {
-        $id = ++$this->lastId;
-        $user = new User($id, $userDTO->name, $userDTO->surname, $userDTO->email);
-        $this->users[] = [$id => $user];
-        $this->data[$id] = $user->toArray();
+        $this->newUsers[] = $user;
+    }
 
-        $json = json_encode(array_values($this->data));
-        if (file_put_contents($this->usersJsonPath, $json) === false)
+    public function deleteUserById(int $userId): void
+    {
+        $this->deletedUserIds[] = $userId;
+    }
+
+    public function save(): void
+    {
+        $this->deleteUsers();
+        $this->insertUsers();
+        $this->deletedUserIds = [];
+        $this->newUsers = [];
+
+    }
+
+    private function deleteUsers(): void
+    {
+        if (empty($this->deletedUserIds))
         {
-            unset($this->users[$id]);
-            unset($this->data[$id]);
-            $this->lastId--;
-            throw new \RuntimeException("Error writing to file!");
+            return;
+        }
+
+        $inConditionItems = [];
+        foreach ($this->deletedUserIds as $key => $value)
+        {
+            $inConditionItems['user' . '_' . $key] = $value;
+        }
+        $inCondition = '(' . implode(',', array_map(fn($key) => ":$key", array_keys($inConditionItems))) . ')';
+
+        try
+        {
+            $sql = "DELETE FROM user WHERE id IN $inCondition";
+            $stmt = $this->connection->prepare($sql);
+            foreach ($inConditionItems as $key => $value)
+            {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+        } catch (\PDOException)
+        {
+            throw new \RuntimeException("Error deleting user");
         }
     }
 
-    public function deleteUser(int $id): void
+    private function insertUsers(): void
     {
-        if (!isset($this->users[$id]))
+        if (empty($this->newUsers))
         {
-            throw new \RuntimeException("User with id: {$id} does not exist.");
+            return;
         }
 
-        unset($this->users[$id]);
-        unset($this->data[$id]);
+        [$placeholders, $data] = $this->prepareDataToInsert($this->newUsers, fn($user) => [
+            'name' => $user->getName(),
+            'surname' => $user->getSurname(),
+            'email' => $user->getEmail()
+        ]);
 
-        $json = json_encode(array_values($this->data));
-        if (file_put_contents($this->usersJsonPath, $json) === false)
+        try
         {
-            throw new \RuntimeException("User deletion error.");
+            $sql = "INSERT INTO user (name, surname, email) VALUES $placeholders";
+            $stmt = $this->connection->prepare($sql);
+            foreach ($data as $key => $value)
+            {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+        } catch (\PDOException)
+        {
+            throw new \RuntimeException("Error adding new user");
         }
+
+    }
+
+    private function prepareDataToInsert(array $users, callable $mapper): array
+    {
+        $placeholders = [];
+        $data = [];
+        foreach ($users as $index => $user)
+        {
+            $itemData = [];
+            foreach ($mapper($user) as $key => $value)
+            {
+                $itemData[$key . '_' . $index] = $value;
+            }
+            $placeholders[] = '(' . implode(',', array_map(fn($key) => ":$key", array_keys($itemData))) . ')';
+            foreach ($itemData as $key => $value)
+            {
+                $data[$key] = $value;
+            }
+        }
+
+        return [implode(',', $placeholders), $data];
     }
 }

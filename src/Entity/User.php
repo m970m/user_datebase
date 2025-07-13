@@ -6,22 +6,22 @@ namespace App\Entity;
 class User
 {
     public function __construct(
-        private int $id,
         private string $name,
         private string $surname,
-        private string $email) {}
+        private string $email,
+        private ?int $id = null) {}
 
     public function toArray(): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->id ?? '',
             'name' => $this->name,
             'surname' => $this->surname,
             'email' => $this->email
         ];
     }
 
-    public function getId(): int
+    public function getId(): int|null
     {
         return $this->id;
     }

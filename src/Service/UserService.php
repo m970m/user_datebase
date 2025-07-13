@@ -1,13 +1,14 @@
 <?php
+declare(strict_types=1);
 
 namespace App\Service;
 
-use App\DTO\UserDTO;
-use App\Repository\UserRepository;
+use App\Entity\User;
+use App\Repository\UserRepositoryInterface;
 
 class UserService
 {
-    public function __construct(private UserRepository $userRepository) {}
+    public function __construct(private UserRepositoryInterface $userRepository) {}
 
     public function getAllUsers(): array
     {
@@ -17,16 +18,18 @@ class UserService
 
     public function addUser(): void
     {
-        $user = new UserDTO(
-            'Name' . rand(),
-            'Surname' . rand(),
-            'Email' . rand()
+        $user = new User(
+            name: 'Name' . rand(1, 10000),
+            surname: 'Surname' . rand(1, 10000),
+            email: 'Email' . rand(1, 10000)
         );
         $this->userRepository->addUser($user);
+        $this->userRepository->save();
     }
 
     public function deleteUser(int $id): void
     {
-        $this->userRepository->deleteUser($id);
+        $this->userRepository->deleteUserById($id);
+        $this->userRepository->save();
     }
 }
