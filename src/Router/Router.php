@@ -3,13 +3,11 @@ declare(strict_types=1);
 
 namespace App\Router;
 
-use App\Controller\UserController;
+use App\Container\Container;
 
 class Router
 {
-    public function __construct(
-        private UserController $userController
-    ) {}
+    public function __construct(private Container $container, private array $routes) {}
 
     public function handleRequest(string $requestUri, string $method, ?array $postData): void
     {
@@ -34,22 +32,20 @@ class Router
 
     private function resolve(array $url, string $method, ?array $postData): array
     {
-        if ($method === 'GET' && $url[0] === 'list-users')
+        $action = $this->routes[$method][$url[0]] ?? null;
+        $param = $url[1] ?? null;
+        if (!$action)
         {
-            return $this->userController->listUsers();
+            throw new \InvalidArgumentException("Invalid request arguments");
         }
 
-        if ($method === 'DELETE' && $url[0] === 'delete-user' && isset($url[1]) && filter_var(($url[1]), FILTER_VALIDATE_INT))
+        [$class, $method] = $action;
+        $class = $this->container->get($class);
+        if ($param)
         {
-            return $this->userController->deleteUser((int) $url[1]);
+            return call_user_func([$class, $method], $param);
         }
-
-        if ($method === 'POST' && $url[0] === 'create-user' && $postData)
-        {
-            return $this->userController->createUser($postData);
-        }
-
-        throw new \InvalidArgumentException("Invalid request arguments");
+        return call_user_func([$class, $method], $postData);
     }
 
     private function parseUrl(string $requestUri): array

@@ -29,20 +29,14 @@ class UserController
         ];
     }
 
-    public function createUser(array $userData): array {
-        $this->validateUserData($userData);
-        $this->userService->addUser($userData);
+    public function createUser(array $userData): array
+    {
+        $userData = $this->userService->addUser($userData);
 
         return [
             'status' => 'success',
-            'message' => 'User created'
+            'message' => 'User created',
+            'userData' => $userData
         ];
-    }
-
-    private function validateUserData(array $userData): void
-    {
-        if (!isset($userData['name'], $userData['surname'], $userData['email'])) {
-            throw new \InvalidArgumentException('Incorrect user data');
-        }
     }
 }
