@@ -16,20 +16,32 @@ class UserService
         return array_map(fn($user) => $user->toArray(), $users);
     }
 
-    public function addUser(): void
+    public function addUser(array $userData): array
     {
+        $this->validateUserData($userData);
         $user = new User(
-            name: 'Name' . rand(1, 10000),
-            surname: 'Surname' . rand(1, 10000),
-            email: 'Email' . rand(1, 10000)
+            name: $userData['name'],
+            surname: $userData['surname'],
+            email: $userData['email']
         );
+
         $this->userRepository->addUser($user);
         $this->userRepository->save();
+
+        return $user->toArray();
     }
 
     public function deleteUser(int $id): void
     {
         $this->userRepository->deleteUserById($id);
         $this->userRepository->save();
+    }
+
+    private function validateUserData(array $userData): void
+    {
+        if (!isset($userData['name'], $userData['surname'], $userData['email']))
+        {
+            throw new \InvalidArgumentException('Incorrect user data');
+        }
     }
 }

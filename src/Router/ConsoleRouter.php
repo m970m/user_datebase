@@ -7,7 +7,8 @@ use App\Service\UserService;
 
 class ConsoleRouter
 {
-    private const HELP_MESSAGE = "use:\n'cli.php add' to add new user\n'cli.php get' to get all users\n'cli.php delete [id]' to delete user";
+    private const HELP_MESSAGE = "use:\n'cli.php add [name] [surname] [email]' to add new user\n" .
+    "'cli.php get' to get all users\n'cli.php delete [id]' to delete user";
 
     public function __construct(
         private UserService $userService
@@ -31,9 +32,15 @@ class ConsoleRouter
             return;
         }
 
-        if ($args[1] == 'add')
+        if ($args[1] == 'add' && count($args) === 5)
         {
-            $this->userService->addUser();
+            $this->userService->addUser(
+                [
+                    'name' => $args[2],
+                    'surname' => $args[3],
+                    'email' => $args[4]
+                ]
+            );
             echo 'A new user has been added.' . PHP_EOL;
             return;
         }
